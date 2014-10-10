@@ -1,0 +1,109 @@
+options {
+    STATIC = false;
+}
+
+PARSER_BEGIN(OPath)
+    package me.hch.text;
+    import java.util.*;
+    import java.io.*;
+    import me.hch.ds.XNode;
+    public class OPath {
+        private List<XNode> xnodes = new ArrayList<XNode>();
+        private XNode xnode;
+        private List<String> els;
+        public static void main( String[] args ) throws ParseException, TokenMgrError {
+            String str = "/hospital[@name='abc' and (@id='huai' or @xx='xz')]/department";
+            OPath parser = new OPath(new StringReader(str)) ;
+            parser.parse() ;
+
+            for(XNode xnode : parser.xnodes) {
+                System.out.println(xnode.getNodeName());
+                if(xnode.getExpr() == null) continue;
+                for(String s : xnode.getExpr()) {
+                    System.out.print(s);
+                }
+                System.out.println();
+            }
+        }
+    }
+PARSER_END(OPath)
+
+SKIP: { " " | "\n" | "\r" | "\r\n" }
+
+TOKEN: {
+    <#LETTER: ["a"-"z", "A"-"Z"]>
+  | <#DIGIT: ["0"-"9"]>
+  | <AND: ("AND" | "and")>
+  | <OR: ("OR" | "or")>
+  |  <IDENTIFIER: <LETTER>(<LETTER>|<DIGIT>)*>
+  | <KEY: "@" <IDENTIFIER>>
+  | <VAL: "'" ( (~["'","\\","\n","\r"]) | "\\" ["n","t","b","r","f","\\","'","\""] )* "'" >
+}
+
+List<XNode> parse() :
+{}
+{
+    (node())+
+    <EOF>
+    { return xnodes; }
+}
+
+void node():
+{
+    Token t;
+}
+{
+    "/"
+    t = <IDENTIFIER>
+    {
+        xnode = new XNode();
+        xnode.setNodeName(t.toString());
+    }
+    (
+        "["
+            { els = new ArrayList<String>(); }
+            expr()
+            { xnode.setExpr(els); }
+        "]"
+    )?
+    { xnodes.add(xnode); }
+}
+
+void expr():
+{
+    Token t;
+    String temp;
+    String ret = "";
+}
+{
+    eq()
+    [
+        (t=<OR>|t=<AND>)
+        {
+            els.add(t.toString());
+        }
+        eq()
+    ]
+}
+
+void eq():
+{
+    Token t;
+}
+{
+    (
+        t = <KEY>
+        { els.add(t.toString()); }
+        "="
+        { els.add("="); }
+        t = <VAL>
+        { els.add(t.toString()); }
+      |
+        "("
+        { els.add("("); }
+        expr()
+        ")"
+        { els.add(")"); }
+    )
+}
+
